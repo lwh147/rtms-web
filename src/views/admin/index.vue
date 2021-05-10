@@ -134,7 +134,6 @@
         v-dialog-drag
         :title="dialogTitle"
         :visible.sync="dialogVisible"
-        width="80%"
         @closed="resetForm('addForm')"
       >
         <el-form
