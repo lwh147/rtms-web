@@ -157,7 +157,7 @@ export default {
                   this.$message.success('添加体温信息成功')
                   this.queryLoading = false
                 }).catch(() => {
-                  this.$message.error('体温所属已确定，但添加体温信息时遭遇网络错误')
+                  this.$message.error('体温所属居民已确定，但添加体温信息时遭遇网络错误')
                   this.queryLoading = false
                 })
               } else {
