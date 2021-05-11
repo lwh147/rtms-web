@@ -1,7 +1,7 @@
 <template>
   <el-container>
     <el-header style="height: unset">
-      <!-- search area -->
+      <!-- 搜索区域 -->
       <el-form :model="adminQuery" style="margin-top: 20px" :inline="true">
         <el-form-item label="姓名:" style="margin-left: 20px;">
           <el-input
@@ -213,7 +213,6 @@ export default {
       admin: {
         password: ''
       },
-      pictureList: [],
       pageInfo: {
         pageNum: 1,
         pageSize: 10,

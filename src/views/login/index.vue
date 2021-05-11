@@ -132,7 +132,7 @@ export default {
           this.isShowSlider = true
           this.loading = true
         } else {
-          console.log('表单校验失败')
+          this.$message.error('请检查输入的账号密码是否合法')
           return false
         }
       })
