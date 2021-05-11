@@ -147,7 +147,6 @@ export default {
             search(data).then((res) => {
               const userList = res.result.user_list
               if (userList.length > 0 && userList[0].score > 80.0) {
-                console.log('第一次找到了匹配人脸')
                 const tempInfo = {
                   time: this.getFormateDate(this.formData.time),
                   temp: this.formData.temp,
@@ -165,7 +164,6 @@ export default {
                 search(data).then((res) => {
                   const userList2 = res.result.user_list
                   if (userList2.length > 0 && userList2[0].score > 80.0) {
-                    console.log('第二次找到了匹配人脸')
                     const tempInfo2 = {
                       time: this.getFormateDate(this.formData.time),
                       temp: this.formData.temp,
