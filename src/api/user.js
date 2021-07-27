@@ -4,7 +4,7 @@ export function login(data) {
   return request({
     url: '/admin/loginFromBackstage',
     method: 'post',
-    data
+    data: data
   })
 }
 
@@ -16,9 +16,12 @@ export function getInfo(token) {
   })
 }
 
-export function logout() {
+export function logout(data) {
   return request({
     url: '/admin/logout',
-    method: 'post'
+    method: 'post',
+    data: {
+      refreshToken: data
+    }
   })
 }

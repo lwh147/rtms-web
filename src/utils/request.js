@@ -1,7 +1,7 @@
 import axios from 'axios'
 import {Message, MessageBox} from 'element-ui'
 import store from '@/store'
-import {getToken} from '@/utils/auth'
+import {getRefreshToken, getToken, setToken} from '@/utils/auth'
 
 // create an axios instance
 const service = axios.create({
@@ -35,7 +35,7 @@ service.interceptors.response.use(
   /**
    * If you want to get http information such as headers or status
    * Please return  response => response
-  */
+   */
 
   /**
    * Determine the request status by custom code
@@ -49,6 +49,10 @@ service.interceptors.response.use(
 
     // if the custom code is not 0, it is judged as an error.
     if (res.code !== 0) {
+      if (res.code === 1003) {
+        return refreshToken(response.config)
+      }
+
       Message({
         message: res.message || 'Error',
         type: 'error',
@@ -83,5 +87,19 @@ service.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+async function refreshToken(config) {
+  const response = await axios.request({
+    url: process.env.VUE_APP_BASE_API + '/admin/loginFromBackstage/refresh',
+    headers: { 'X-TOKEN': getRefreshToken() },
+    method: 'get'
+  })
+  const newToken = response.data.data.access_token
+  store.commit('user/SET_TOKEN', newToken)
+  setToken(newToken)
+  config.headers['X-Token'] = newToken
+  const result = await axios.request(config)
+  return result.data
+}
 
 export default service
