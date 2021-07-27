@@ -89,16 +89,20 @@ service.interceptors.response.use(
 )
 
 async function refreshToken(config) {
+  // 刷新access_token
   const response = await axios.request({
     url: process.env.VUE_APP_BASE_API + '/admin/loginFromBackstage/refresh',
     headers: { 'X-TOKEN': getRefreshToken() },
     method: 'get'
   })
+  // 更新store中的access_token和存储在cookie中的access_token
   const newToken = response.data.data.access_token
   store.commit('user/SET_TOKEN', newToken)
   setToken(newToken)
+  // 设置新的access_token到之前的请求头
   config.headers['X-Token'] = newToken
   const result = await axios.request(config)
+  // 重新发起之前的请求，无感知刷新页面
   return result.data
 }
 
