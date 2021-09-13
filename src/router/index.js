@@ -82,6 +82,19 @@ export const constantRoutes = [
     ]
   },
 
+  {
+    path: '/api',
+    component: Layout,
+    children: [
+      {
+        path: 'index',
+        name: 'api',
+        component: () => import('@/views/api/index'),
+        meta: { title: '体温信息录入接口', icon: 'el-icon-upload' }
+      }
+    ]
+  },
+
   // 404 page must be placed at the end !!!
   { path: '*', redirect: '/404', hidden: true }
 ]

@@ -1,7 +1,7 @@
 <template>
   <el-container>
     <el-header style="height: unset">
-      <!-- search area -->
+      <!-- 搜索区域 -->
       <el-form :model="residentQuery" style="margin-top: 20px" :inline="true">
         <el-form-item label="姓名:" style="margin-left: 20px;">
           <el-input
@@ -153,12 +153,12 @@
                 type="danger"
                 @click="onBtnDeleteClick(scope.$index, scope.row)"
               >删除</el-button>
-              <!--              <el-button
+              <el-button
                 id="btnImageEdit"
                 size="mini"
-                @click="onBtnImagesEditClick(scope.$index, scope.row)"
+                @click="onBtnFaceEditClick(scope.$index, scope.row)"
               >人脸管理
-              </el-button>-->
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -181,7 +181,6 @@
         v-dialog-drag
         :title="dialogTitle"
         :visible.sync="dialogVisible"
-        width="80%"
         @closed="resetForm('addForm')"
       >
         <el-form
@@ -269,26 +268,6 @@
               </el-form-item>
             </el-col>
           </el-row>
-
-          <!--          <el-row>
-            <el-col v-if="dialogType === 'ADD'" :span="11">
-              <el-form-item label="人脸照片上传">
-                <el-upload
-                  list-type="picture-card"
-                  :on-preview="handlePictureCardPreview"
-                  :on-remove="handleRemove"
-                  :on-success="handle_success"
-                  :file-list="pictureList"
-                  :on-change="handle"
-                  multiple
-                  :auto-upload="false"
-                  action=""
-                >
-                  <i class="el-icon-plus" />
-                </el-upload>
-              </el-form-item>
-            </el-col>
-          </el-row>-->
         </el-form>
         <span slot="footer" class="dialog-footer">
           <el-button id="btnCancel" @click="onBtnCancelClick">取 消</el-button>
@@ -299,6 +278,58 @@
           >确 定</el-button>
         </span>
       </el-dialog>
+
+      <!-- 人脸操作对话框 -->
+      <el-dialog
+        v-dialog-drag
+        title="人脸信息"
+        :visible.sync="faceDialogVisible"
+        @close="handleClose"
+      >
+        <el-form
+          ref="faceForm"
+          status-icon
+          label-width="140px"
+        >
+          <el-row>
+            <div>
+              <el-form-item label="已拥有人脸数量：">
+                <div>
+                  {{ faceInfo.faceCount }}
+                </div>
+              </el-form-item>
+            </div>
+            <div v-if="faceInfo.faceCount < 3">
+              <el-form-item label="添加人脸：">
+                <el-upload
+                  list-type="picture-card"
+                  :on-preview="handlePicturePreview"
+                  :on-remove="handleRemove"
+                  :on-success="handleSuccess"
+                  :on-exceed="handleFaceExceed"
+                  :on-change="handleChange"
+                  :file-list="pictureList"
+                  :limit="3 - faceInfo.faceCount"
+                  multiple
+                  :auto-upload="false"
+                  action=""
+                >
+                  <i class="el-icon-plus" />
+                </el-upload>
+              </el-form-item>
+            </div>
+          </el-row>
+          <el-row>
+            <el-col>
+              <el-form-item label-width="220px" label="提示：每个人最多拥有3张人脸" /></el-col>
+          </el-row>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+          <el-button type="danger" @click="onBtnClearFaceClick">清空现存人脸数据</el-button>
+          <el-button @click="onBtnCancelClick">取 消</el-button>
+          <el-button type="primary" @click="saveFace('addForm')">保存</el-button>
+        </span>
+      </el-dialog>
     </el-main>
 
   </el-container>
@@ -307,7 +338,7 @@
 <script>
 import {add, commonQuery, modify, queryResidentById, remove} from '@/api/resident'
 import '@/utils/dialogdrap'
-import {batchAddPicture, fileUpload, removeImage} from '@/api/picture'
+import {addUserFace, deleteUser, getUserFaceList} from '@/api/face'
 
 export default {
   data() {
@@ -316,6 +347,7 @@ export default {
       queryLoading: false, // 查询按钮动画控制
       updateLoading: false, // 修改按钮动画控制
       dialogVisible: false, // 对话框可见性控制
+      faceDialogVisible: false,
 
       // 数据资源
       resident: {},
@@ -326,6 +358,9 @@ export default {
         total: 0
       },
       residentVOS: [],
+      faceInfo: {
+        faceCount: 0
+      },
 
       // 查询条件
       residentQuery: {
@@ -506,7 +541,7 @@ export default {
       if (selectedResidentVO === undefined || selectedResidentVO === null) {
         return
       }
-      this.$confirm('确定删除记录吗').then(() => {
+      this.$confirm('确定删除记录吗？').then(() => {
         remove(selectedResidentVO.id)
           .then(() => {
             this.$message.success('删除成功')
@@ -593,6 +628,7 @@ export default {
      **/
     onBtnCancelClick() {
       this.dialogVisible = false
+      this.faceDialogVisible = false
       this.dialogTitle = ''
       this.dialogType = ''
     },
@@ -601,106 +637,158 @@ export default {
      **/
     resetForm(formName) {
       this.$refs[formName].resetFields()
-      this.fileList = []
     },
     /**
      * 删除人脸
      **/
-    deleImages(imageId) {
-      removeImage(imageId, '')
+    onBtnClearFaceClick() {
+      if (this.faceInfo.faceCount === 0) {
+        this.$message.warning('当前用户没有人脸数据')
+        return
+      }
+      this.$confirm('确定清空人脸数据吗？').then(() => {
+        const data = {
+          user_id: this.resident.id,
+          group_id: this.resident.building + '_' + this.resident.entrance
+        }
+        deleteUser(data).then((res) => {
+          if (res.error_code === 0 || res.error_code === 223103) {
+            this.$message.success('人脸数据已清空')
+            this.faceInfo.face = []
+            this.faceInfo.faceCount = 0
+            return
+          }
+          this.$message.error('清空失败')
+        }).catch(() => {
+          this.$message.error('网络错误')
+        })
+      })
+    },
+    /**
+     * 管理人脸图片数据按钮点击
+     **/
+    onBtnFaceEditClick(index, row) {
+      const selectedResidentVO = this.residentVOS[index]
+      if (selectedResidentVO === undefined || selectedResidentVO == null) {
+        this.$message.info('没有对应记录可以编辑')
+        return
+      }
+      queryResidentById(selectedResidentVO.id)
         .then((response) => {
-          if (response) {
-            this.$message.success('删除成功')
-            this.onBtnQueryClick()
+          if (response != null) {
+            this.resident = response.data
+            const data = {
+              user_id: this.resident.id,
+              group_id: this.resident.building + '_' + this.resident.entrance
+            }
+            getUserFaceList(data).then((res) => {
+              if (res.result) {
+                this.faceInfo.face = res.result.face_list
+                this.faceInfo.faceCount = res.result.face_list.length
+              } else {
+                this.faceInfo.face = []
+                this.faceInfo.faceCount = 0
+              }
+              this.faceDialogVisible = true
+            }).catch(() => {
+              this.$message.error('网络异常')
+            })
           } else {
-            this.$message.error('删除失败')
+            this.$message.warning('该居民已不存在')
           }
         })
         .catch(() => {
-          this.$message.error('网络错误')
+          this.$message.error('网络异常')
         })
     },
     /**
-     * 管理人脸图片数据
+     * 将图片从图片列表中删除
      **/
-    onBtnImagesEditClick(index, row) {
-
-    },
-    // 将图片从图片列表中删除
     handleRemove(file, fileList) {
-      this.fileList = fileList
+      this.pictureList = fileList
     },
-    handlePictureCardPreview(file) {
-      console.log(file.url)
+    /**
+     * 人脸数量超出
+     **/
+    handleFaceExceed() {
+      this.$message.warning('当前人脸数量已超出限制！')
     },
-    handle_success(res) {
-      console.log(res)
-      this.$message.success('图片上传成功')
+    /**
+     * 预览图片
+     **/
+    handlePicturePreview(file) {
+      window.open(file.url)
     },
-    handle(file, fileList) {
-      this.fileList = fileList
-    },
-    handleClose(done) {
-      this.fileList = []
-      this.imagesDialogVisible = false
-    },
-    // 上传图片
-    uploadx() {
-      const that = this
-      var formdata = new FormData()
-      console.log('imagefiles：', this.fileList)
-      that.fileList.forEach(function(file) {
-        formdata.append('files', file.raw)
-      })
-      fileUpload(formdata)
-        .then((response) => {
-          this.imagesUrlList = response.data
-          if (this.dialogType === 'ADD') {
-            // 添加景点信息
-            this.addOrEdit('addForm')
-          } else {
-            // 批量添加图片
-            this.addbatchPicture()
+    /**
+     * 保存人脸数据
+     **/
+    saveFace() {
+      if (this.pictureList.length === 0) {
+        this.$message.warning('请至少添加一张人脸照片')
+      }
+      console.log('人脸数据：', this.pictureList)
+      for (let i = 0; i < this.pictureList.length; i++) {
+        this.getBase64(this.pictureList[i].raw).then((res) => {
+          const data = {
+            image_type: 'BASE64',
+            image: res,
+            user_id: this.resident.id,
+            group_id: this.resident.building + '_' + this.resident.entrance
           }
+          addUserFace(data).then((res) => {
+            if (res.error_code === 222203) {
+              this.$message.error('第' + (i + 1) + '张照片不符合要求')
+            } else if (res.error_code === 0) {
+              this.$message.success('第' + (i + 1) + '张照片添加成功')
+              this.handleClose()
+            } else {
+              this.$message.error('第' + (i + 1) + '张照片添加失败')
+            }
+          }).catch(() => {
+            this.$message.error('第' + (i + 1) + '张照片添加失败')
+          })
+        }).catch(() => {
+          this.$message.error('第' + (i + 1) + '张照片添加失败')
         })
-        .catch(() => {
-          this.$message.error('网络异常')
-        })
-    },
-    // 添加图片
-    onBtnPictureSaveClick(formName) {
-      if (this.dialogType === 'ADD') {
-        this.uploadx()
-      } else if (this.dialogType === 'EDIT') {
-        this.addOrEdit(formName)
       }
     },
-    // 向数据库中插入上传后的图片信息
-    addbatchPicture() {
-      console.log('景点id：', this.selectedAttractionId)
-      console.log('图片url：', this.imagesUrlList)
-
-      this.addTemporaryDTO.fkId = this.selectedAttractionId
-      this.addTemporaryDTO.imagesUrlList = this.imagesUrlList
+    /**
+     * 成功回调
+     **/
+    handleSuccess(res) {
       this.$message.success('上传成功')
-      batchAddPicture(this.addTemporaryDTO)
-        .then((response) => {
-          if (response) {
-            this.$message.success('上传成功')
-            this.selectedAttractionId = null
-            this.imagesUrlList = []
-            this.fileList = []
-            this.imagesDialogVisible = false
-            this.onBtnQueryClick()
-          } else {
-            this.$message.warning('上传失败')
-            this.imagesDialogVisible = false
-            this.onBtnQueryClick()
-          }
-        })
-        .catch(() => {
-          this.$message.error('网络异常')
-        })
+    },
+    /**
+     * 图片列表改变
+     **/
+    handleChange(file, fileList) {
+      this.pictureList = fileList
+    },
+    /**
+     * 人脸操作对话框消失处理
+     **/
+    handleClose() {
+      this.faceDialogVisible = false
+      this.pictureList = []
+    },
+    /**
+     * 把图片转换为base64编码
+     **/
+    getBase64(file) {
+      return new Promise(function(resolve, reject) {
+        const reader = new FileReader()
+        let imgResult = ''
+        reader.readAsDataURL(file)
+        reader.onload = function() {
+          imgResult = reader.result.split(',')[1]
+        }
+        reader.onerror = function(error) {
+          reject(error)
+        }
+        reader.onloadend = function() {
+          resolve(imgResult)
+        }
+      })
     }
   }
 }
